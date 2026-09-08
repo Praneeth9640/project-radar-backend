@@ -1,7 +1,6 @@
 """MongoDB connection and index bootstrap."""
 
 import os
-import socket
 
 import certifi
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
@@ -21,13 +20,11 @@ _client: AsyncIOMotorClient | None = None
 
 async def connect_to_mongo() -> AsyncIOMotorDatabase:
     global _client
-    # Force IPv4 — some hosts fail Atlas TLS when preferring IPv6.
     _client = AsyncIOMotorClient(
         settings.mongodb_uri,
         tlsCAFile=certifi.where(),
         serverSelectionTimeoutMS=20000,
         connectTimeoutMS=20000,
-        family=socket.AF_INET,
     )
     db = _client[settings.mongodb_db_name]
     try:
