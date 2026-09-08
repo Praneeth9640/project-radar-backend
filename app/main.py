@@ -48,4 +48,16 @@ app.include_router(repositories.router, prefix=settings.api_prefix)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": settings.app_name}
+    mongo = "unknown"
+    try:
+        from app.db.mongodb import get_db
+
+        await get_db().command("ping")
+        mongo = "up"
+    except Exception:  # noqa: BLE001
+        mongo = "down"
+    return {
+        "status": "ok" if mongo == "up" else "degraded",
+        "service": settings.app_name,
+        "mongo": mongo,
+    }

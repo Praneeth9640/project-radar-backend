@@ -1,29 +1,46 @@
 """MongoDB connection and index bootstrap."""
 
+import os
+import socket
+
 import certifi
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo.errors import ServerSelectionTimeoutError
 
 from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Ensure OpenSSL on cloud hosts (Render) trusts public CAs used by Atlas.
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+
 _client: AsyncIOMotorClient | None = None
 
 
 async def connect_to_mongo() -> AsyncIOMotorDatabase:
     global _client
-    # Render/Atlas often needs an explicit CA bundle or TLS handshakes fail.
+    # Force IPv4 — some hosts fail Atlas TLS when preferring IPv6.
     _client = AsyncIOMotorClient(
         settings.mongodb_uri,
-        tls=True,
         tlsCAFile=certifi.where(),
         serverSelectionTimeoutMS=20000,
         connectTimeoutMS=20000,
+        family=socket.AF_INET,
     )
     db = _client[settings.mongodb_db_name]
-    # Force an early round-trip so startup fails clearly if Atlas is unreachable.
-    await db.command("ping")
+    try:
+        await db.command("ping")
+    except ServerSelectionTimeoutError:
+        logger.error(
+            "mongodb_unreachable",
+            hint=(
+                "Atlas Network Access must allow Render. "
+                "In Atlas → Network Access → Add IP Address → Allow Access from Anywhere (0.0.0.0/0)."
+            ),
+        )
+        raise
     await ensure_indexes(db)
     logger.info("mongodb_connected", db=settings.mongodb_db_name)
     return db
