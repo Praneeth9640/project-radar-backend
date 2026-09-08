@@ -141,11 +141,12 @@ async def get_repository(
 
     score_doc = await ScoreRepository(db).get(repository_id)
     snaps = await SnapshotRepository(db).list_for_repository(repository_id, limit=90)
-    ai = await AIAnalysisRepository(db).latest(repository_id)
+    ai = None
     note = None
     tags: list[str] = []
     saved = False
     if user:
+        ai = await AIAnalysisRepository(db).latest(user["id"], repository_id)
         saved_repo = SavedRepository(db)
         saved = await saved_repo.is_saved(user["id"], repository_id)
         note_doc = await NoteRepository(db).get(user["id"], repository_id)
@@ -367,7 +368,6 @@ async def analyze_repository(
     db: AsyncIOMotorDatabase = Depends(get_database),
     user=Depends(get_current_user),
 ):
-    _ = user
     repos = RepositoryRepository(db)
     repo = await repos.get_by_id(repository_id)
     if not repo:
@@ -376,6 +376,7 @@ async def analyze_repository(
     payload = {**repo, **(score or {})}
     summary = await generate_repository_analysis(payload)
     saved = await AIAnalysisRepository(db).create(
+        user["id"],
         repository_id,
         summary,
         settings.openai_model if settings.openai_api_key else "fallback",

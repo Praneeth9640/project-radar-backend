@@ -446,21 +446,42 @@ class AIAnalysisRepository(BaseRepository):
     def __init__(self, db: AsyncIOMotorDatabase):
         super().__init__(db, "ai_analyses")
 
-    async def create(self, repository_id: str, summary: dict[str, Any], model: str):
-        doc = {
-            "repository_id": oid(repository_id),
-            "summary": summary,
-            "model": model,
-            "created_at": datetime.now(timezone.utc),
-        }
-        result = await self.collection.insert_one(doc)
-        doc["_id"] = result.inserted_id
-        return serialize_doc(doc)
-
-    async def latest(self, repository_id: str):
+    async def create(
+        self,
+        user_id: str,
+        repository_id: str,
+        summary: dict[str, Any],
+        model: str,
+    ):
+        now = datetime.now(timezone.utc)
+        await self.collection.update_one(
+            {"user_id": oid(user_id), "repository_id": oid(repository_id)},
+            {
+                "$set": {
+                    "summary": summary,
+                    "model": model,
+                    "created_at": now,
+                },
+                "$setOnInsert": {
+                    "user_id": oid(user_id),
+                    "repository_id": oid(repository_id),
+                },
+            },
+            upsert=True,
+        )
         return serialize_doc(
             await self.collection.find_one(
-                {"repository_id": oid(repository_id)},
+                {"user_id": oid(user_id), "repository_id": oid(repository_id)}
+            )
+        )
+
+    async def latest(self, user_id: str, repository_id: str):
+        return serialize_doc(
+            await self.collection.find_one(
+                {
+                    "user_id": oid(user_id),
+                    "repository_id": oid(repository_id),
+                },
                 sort=[("created_at", -1)],
             )
         )

@@ -109,8 +109,13 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.alerts.create_index([("user_id", 1), ("active", 1)])
     await db.alerts.create_index([("repository_id", 1), ("active", 1)])
 
+    # Drop legacy global analyses (no user_id) so per-user unique index can apply.
+    await db.ai_analyses.delete_many({"user_id": {"$exists": False}})
     await db.ai_analyses.create_index(
-        [("repository_id", 1), ("created_at", -1)]
+        [("user_id", 1), ("repository_id", 1)], unique=True
+    )
+    await db.ai_analyses.create_index(
+        [("user_id", 1), ("repository_id", 1), ("created_at", -1)]
     )
 
     await db.sync_jobs.create_index([("job_type", 1), ("started_at", -1)])
