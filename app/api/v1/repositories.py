@@ -213,7 +213,12 @@ async def trending(
     user=Depends(get_current_user_optional),
 ):
     return await list_repositories(
-        sort="momentum", page=page, page_size=page_size, db=db, user=user
+        max_age_days=settings.discovery_created_within_days,
+        sort="momentum",
+        page=page,
+        page_size=page_size,
+        db=db,
+        user=user,
     )
 
 
@@ -229,6 +234,7 @@ async def fastest_growing(
     # Prefer label when asking for short-term velocity
     label = "FAST GROWING" if window == "24h" else None
     return await list_repositories(
+        max_age_days=settings.discovery_created_within_days,
         sort=sort,
         label=label,
         page=page,
@@ -264,7 +270,14 @@ async def dashboard(
     db: AsyncIOMotorDatabase = Depends(get_database),
     user=Depends(get_current_user_optional),
 ):
-    trending_resp = await list_repositories(sort="momentum", page=1, page_size=6, db=db, user=user)
+    trending_resp = await list_repositories(
+        max_age_days=settings.discovery_created_within_days,
+        sort="momentum",
+        page=1,
+        page_size=6,
+        db=db,
+        user=user,
+    )
     new_resp = await list_repositories(
         max_age_days=settings.discovery_created_within_days,
         sort="age",
@@ -273,7 +286,14 @@ async def dashboard(
         db=db,
         user=user,
     )
-    fast_resp = await list_repositories(sort="star_growth", page=1, page_size=6, db=db, user=user)
+    fast_resp = await list_repositories(
+        max_age_days=settings.discovery_created_within_days,
+        sort="star_growth",
+        page=1,
+        page_size=6,
+        db=db,
+        user=user,
+    )
     saved_items: list[RepositoryOut] = []
     saved_total = 0
     if user:
