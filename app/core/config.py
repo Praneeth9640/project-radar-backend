@@ -65,7 +65,13 @@ class Settings(BaseSettings):
         models = [self.openai_model, self.openai_fallback_model]
         return [m.strip() for m in models if m and m.strip()]
 
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:3001,http://127.0.0.1:3001,"
+        "https://project-radar-frontend.vercel.app"
+    )
+    # Allow Vercel preview + production URLs without listing every deployment.
+    cors_origin_regex: str = r"https://.*\.vercel\.app"
 
     momentum_weight_star_growth: float = 0.35
     momentum_weight_star_pct: float = 0.25
