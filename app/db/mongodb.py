@@ -1,5 +1,6 @@
 """MongoDB connection and index bootstrap."""
 
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from app.core.config import settings
@@ -12,8 +13,17 @@ _client: AsyncIOMotorClient | None = None
 
 async def connect_to_mongo() -> AsyncIOMotorDatabase:
     global _client
-    _client = AsyncIOMotorClient(settings.mongodb_uri)
+    # Render/Atlas often needs an explicit CA bundle or TLS handshakes fail.
+    _client = AsyncIOMotorClient(
+        settings.mongodb_uri,
+        tls=True,
+        tlsCAFile=certifi.where(),
+        serverSelectionTimeoutMS=20000,
+        connectTimeoutMS=20000,
+    )
     db = _client[settings.mongodb_db_name]
+    # Force an early round-trip so startup fails clearly if Atlas is unreachable.
+    await db.command("ping")
     await ensure_indexes(db)
     logger.info("mongodb_connected", db=settings.mongodb_db_name)
     return db
